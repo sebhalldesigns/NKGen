@@ -2,7 +2,7 @@
 
 cmake_minimum_required(VERSION 3.10)
 
-function(GenerateModules target)
+function(generate_modules target)
 
     # Get the list of modules passed to the function
     set(modules ${ARGN})
@@ -53,10 +53,12 @@ function(GenerateModules target)
             ${src_file}
         )
 
+        target_link_libraries(${mod_base} PUBLIC NanoKit)
+
         target_compile_definitions(${mod_base} PUBLIC "${mod_base_upper}_BUILD")
-        target_include_directories(${mod_base} PUBLIC ${GEN_DIR} ${NANOKIT_DIR}/kit ${NANOKIT_DIR}/../NanoWin/lib)
+        target_include_directories(${mod_base} PUBLIC ${GEN_DIR})
         message("include directory: ${NANOKIT_DIR}")
-        target_link_libraries(${target} ${mod_base} NanoWin)
+        target_link_libraries(${target} PUBLIC ${mod_base})
         
     endforeach()
 

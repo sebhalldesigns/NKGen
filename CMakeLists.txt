@@ -13,3 +13,5 @@ add_executable(nkgen
 target_include_directories(nkgen PRIVATE
     src
 )
+
+set(NKGEN_CMAKE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NKGen.cmake" CACHE STRING "Path to NKGen.cmake" FORCE)
