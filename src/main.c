@@ -21,7 +21,7 @@
 
 #include <parser/parser.h>
 #include <header/header.h>
-#include <source/source.h>
+//#include <source/source.h>
 
 /***************************************************************
 ** MARK: CONSTANTS & MACROS
@@ -44,7 +44,8 @@ int LoadFile(const char* path, char** buffer, size_t* size);
 ** MARK: PUBLIC FUNCTIONS
 ***************************************************************/
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) 
+{
 
     if (argc != 5) {
         fprintf(stderr, "Usage: %s <moduleName> <input.xml> <output.h> <output.c>\n", argv[0]);
@@ -59,7 +60,8 @@ int main(int argc, char *argv[]) {
     size_t inputFileSize;
     char *inputFileBuffer;
 
-    if (LoadFile(inputFile, &inputFileBuffer, &inputFileSize)) {
+    if (LoadFile(inputFile, &inputFileBuffer, &inputFileSize)) 
+    {
         fprintf(stderr, "Error: Could not load input file\n");
         return 1;
     }
@@ -67,13 +69,21 @@ int main(int argc, char *argv[]) {
     printf(">>> GENERATING MODULE \"%s\"\n", moduleName);
     
     /* Parse the file */
-    FileContents fileContents = ParseFile(inputFileBuffer, inputFileSize, moduleName);
+    TreeNode* rootNode = ParseFile(inputFileBuffer, inputFileSize, moduleName);
+
+    printf("ABOUT TO VALIDATE TREE\n");
+    ValidateTree(rootNode);
 
     /* Write the header file */
-    WriteHeaderFile(outputHeader, moduleName, &fileContents);
+    //WriteHeaderFile(outputHeader, moduleName, rootNode);
 
     /* Write the source file */
-    WriteSourceFile(outputSource, moduleName, &fileContents);
+    //WriteSourceFile(outputSource, moduleName, &fileContents);
+
+    /* Free the input file buffer */
+    //free(inputFileBuffer);
+    
+    //FreeFile(rootNode);
     
     printf("<<< DONE\n");
 

@@ -54,7 +54,7 @@ static void ProcessView(View* view);
 ** MARK: PUBLIC FUNCTIONS
 ***************************************************************/
 
-void WriteHeaderFile(const char* path, const char* moduleName, FileContents* fileContents)
+void WriteHeaderFile(const char* path, const char* moduleName, TreeNode* fileContents)
 {
 
     if (outputBuffer != NULL) 

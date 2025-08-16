@@ -54,5 +54,6 @@ typedef struct TreeNode
 ***************************************************************/
 
 TreeNode* ParseFile(char* contents, size_t size, const char* moduleName);
+void FreeFile(TreeNode* rootNode);
 
 #endif /* PARSER_H */

@@ -2,17 +2,17 @@
 **
 ** NanoKit Tool Header File
 **
-** File         :  header.h
+** File         :  translator.h
 ** Module       :  nkgen
 ** Author       :  SH
-** Created      :  2025-03-23 (YYYY-MM-DD)
+** Created      :  2025-08-16 (YYYY-MM-DD)
 ** License      :  MIT
-** Description  :  nkgen header file writer
+** Description  :  nkgen translator
 **
 ***************************************************************/
 
-#ifndef HEADER_H
-#define HEADER_H
+#ifndef TRANSLATOR_H
+#define TRANSLATOR_H
 
 /***************************************************************
 ** MARK: INCLUDES
@@ -34,6 +34,9 @@
 ** MARK: FUNCTION DEFS
 ***************************************************************/
 
-void WriteHeaderFile(const char* path, const char* moduleName, TreeNode* fileContents);
+bool ValidateTree(TreeNode* rootNode);
 
-#endif /* HEADER_H */
+bool ValidateClass(const char* className);
+bool ValidateProperty(const char* className, const char* propertyName);
+
+#endif /* TRANSLATOR_H */

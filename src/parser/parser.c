@@ -52,6 +52,8 @@ static void AddAttributeToNode(TreeNode* node, const char* key, const char* valu
 
 static void PrintNode(TreeNode* node, size_t depth);
 
+static void FreeNode(TreeNode* node);
+
 /***************************************************************
 ** MARK: PUBLIC FUNCTIONS
 ***************************************************************/
@@ -80,6 +82,14 @@ TreeNode* ParseFile(char* contents, size_t size, const char* moduleName)
     PrintNode(rootNode, 0);
 
     return rootNode;  
+}
+
+void FreeFile(TreeNode* rootNode)
+{
+    if (!rootNode) return;
+
+    FreeNode(rootNode);
+    rootNode = NULL;
 }
 
 /***************************************************************
@@ -271,4 +281,27 @@ static void PrintNode(TreeNode* node, size_t depth)
         PrintNode(node->sibling, depth);
     }
 
+}
+
+static void FreeNode(TreeNode* node)
+{
+    if (!node) return;
+    
+    if (node->className) free((void*)node->className);
+    if (node->instanceName) free((void*)node->instanceName);
+    if (node->content) free((void*)node->content);
+
+    NodeProperty* property = node->properties;
+    while (property)
+    {
+        NodeProperty* nextProperty = property->next;
+        free((void*)property->key);
+        free((void*)property->value);
+        free(property);
+        property = nextProperty;
+    }
+
+    if (node->child) FreeNode(node->child);
+    if (node->sibling) FreeNode(node->sibling);
+    free(node);
 }
