@@ -28,95 +28,31 @@
 ** MARK: TYPEDEFS
 ***************************************************************/
 
-typedef enum 
+typedef struct NodeProperty
 {
-    DOCK_LEFT,
-    DOCK_RIGHT,
-    DOCK_TOP,
-    DOCK_BOTTOM
-} DockLocation;
+    struct NodeProperty* next; /* Pointer to the next property in the linked list */
 
-typedef struct 
+    const char* key;
+    const char* value;
+} NodeProperty;
+
+/* Generic tree node structure */
+typedef struct TreeNode
 {
-    float Left;
-    float Right;
-    float Top;
-    float Bottom;
-} Thickness;
+    const char* className;      /* XML class*/
+    const char* instanceName;   /* Name attribute */
+    const char* content;        /* Content of the node, if any */
 
-typedef enum
-{
-    PARENT_TYPE_NONE,
-    PARENT_TYPE_WINDOW,
-    PARENT_TYPE_ROOT_VIEW,
-    PARENT_TYPE_VIEW
-} ParentType;
+    NodeProperty* properties;   /* Linked list of properties */
 
-typedef struct View
-{
-    const char* Class;
-    
-    struct View* Content;
-
-    /* Events */
-    const char* ClickFunction;
-    const char* PointerDownFunction;
-    const char* PointerUpFunction;
-    const char* PointerMoveFunction;
-
-    /* Properties */
-    Thickness Margin;
-    Thickness Padding;
-    DockLocation DockLocation;
-    
-    struct View* Next;
-    ParentType ParentType;
-    void* Parent;
-} View;
- 
-
-typedef struct RootView
-{
-    /* set with Class */
-    const char* Class;
-
-    /* content */
-    View* Content;
-
-} RootView;
-
-typedef struct Window
-{
-    /* set with Class */
-    const char* Class;
-
-    /* properties */
-    const char* Title;
-    int Width;
-    int Height;
-
-    /* content */
-    View* Content;
-
-} Window;
-
-typedef enum
-{
-    ROOT_NODE_NONE,
-    ROOT_NODE_WINDOW,
-    ROOT_NODE_VIEW
-} RootNodeType;
-
-typedef struct
-{
-    RootNodeType rootNodeType;
-    void* rootNode;
-} FileContents;
+    struct TreeNode* child; /* Pointer to the first child node */
+    struct TreeNode* sibling; /* Pointer to the next sibling node */
+} TreeNode;
 
 /***************************************************************
 ** MARK: FUNCTION DEFS
 ***************************************************************/
 
-FileContents ParseFile(char* contents, size_t size, const char* moduleName);
+TreeNode* ParseFile(char* contents, size_t size, const char* moduleName);
 
 #endif /* PARSER_H */
