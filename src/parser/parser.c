@@ -120,9 +120,6 @@ static void TraverseNode(struct xml_node* node, size_t depth)
     else
     {
         //printf("No content for node %s\n", nodeClass);
-
-        free(nodeContent);
-        nodeContent = NULL;
     }
 
     TreeNode* newNode = CreateNode(nodeClass, nodeContent, depth);
@@ -210,6 +207,10 @@ static TreeNode* CreateNode(const char* className, const char* content, size_t d
             sibling->sibling = newNode;
         }
     }
+
+    //printf("Created node: %s %p\n", className, newNode);
+
+    return newNode;
 }
 
 static void AddAttributeToNode(TreeNode* node, const char* key, const char* value)
@@ -227,7 +228,7 @@ static void AddAttributeToNode(TreeNode* node, const char* key, const char* valu
         newProperty->value = value;
         newProperty->next = NULL;
 
-        if (node->properties == NULL)
+        if (!node->properties)
         {
             node->properties = newProperty;
         }
@@ -241,6 +242,8 @@ static void AddAttributeToNode(TreeNode* node, const char* key, const char* valu
 
             current->next = newProperty;
         }
+
+        //printf("Added property: %s = %s to class %s\n", key, value, node->className);
     }
 }
 

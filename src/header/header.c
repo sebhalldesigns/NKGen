@@ -21,6 +21,8 @@
 
 #include <xml/xml.h>
 
+#include <translator/translator.h>
+
 #include "header.h"
 
 /***************************************************************
@@ -42,20 +44,22 @@ static size_t positionInFile = 0;
 static char moduleNameBuffer[256];
 static char moduleNameUpper[256];
 
+static size_t objectsCount = 0;
+
 /***************************************************************
 ** MARK: STATIC FUNCTION DEFS
 ***************************************************************/
 
-static void ProcessWindow(Window* window);
-static void ProcessRootView(RootView* rootView);
-static void ProcessView(View* view);
+void DefineObject(TreeNode* node);
+void DefineCallbacks(TreeNode* node);
 
 /***************************************************************
 ** MARK: PUBLIC FUNCTIONS
 ***************************************************************/
 
 void WriteHeaderFile(const char* path, const char* moduleName, TreeNode* fileContents)
-{
+{   
+    objectsCount = 0;
 
     if (outputBuffer != NULL) 
     {
@@ -76,16 +80,9 @@ void WriteHeaderFile(const char* path, const char* moduleName, TreeNode* fileCon
     }
     moduleNameUpper[strlen(moduleName)] = '\0';
 
-    const char* moduleType;
+    const char* moduleType = TranslateClassName(fileContents->className);
 
-    if (fileContents->rootNodeType == ROOT_NODE_WINDOW)
-    {
-        moduleType = "nkWindow_t";
-    }
-    else
-    {
-        moduleType = "nkView_t";
-    }
+    /* BEGIN STRUCT DEFINITION */
 
     positionInFile = snprintf(outputBuffer, outputBufferSize, 
 "/***************************************************************\n\
@@ -101,23 +98,41 @@ void WriteHeaderFile(const char* path, const char* moduleName, TreeNode* fileCon
 #define %s_XML_H\n\
 \n\
 #include <nanowin.h>\n\
+#include <views/views.h>\n\
 \n\
 typedef struct\n\
 {\n\
-    %s Super;\n\
-} %s_t;\n\
+    /* Base object */\n\
+    %s super;\n\
 \n\
-/* Module Functions - Implementations Generated from XML */\n\
-bool %s_Create(%s_t*);\n\
-void %s_Destroy(%s_t*);\n\
-\n\
-/* Callback Functions - Implemented in User Code */\n\
+    /* Child views */\n\
 ",
         path,
         moduleName,
         moduleNameUpper,
         moduleNameUpper,
-        moduleType,
+        moduleType
+    );
+
+    TreeNode* currentNode = fileContents->child;
+
+    while (currentNode != NULL)
+    {
+        DefineObject(currentNode);
+        currentNode = currentNode->sibling;
+    }
+
+    /* END STRUCT DEFINITION */
+
+   positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile, 
+"} %s_t;\n\
+\n\
+/* Module Functions - Implementations Generated from XML */\n\
+bool %s_Create(%s_t* this);\n\
+void %s_Destroy(%s_t* this);\n\
+\n\
+/* Callback Functions - Implemented in User Code */\n\
+",
         moduleName,
         moduleName,
         moduleName,
@@ -125,18 +140,9 @@ void %s_Destroy(%s_t*);\n\
         moduleName
     );
 
+    DefineCallbacks(fileContents);
 
-    /* PRINT OUT CALLBACK FUNCTIONS */
-
-    if (fileContents->rootNodeType == ROOT_NODE_WINDOW)
-    {
-
-        ProcessWindow((Window*)fileContents->rootNode);
-    }
-    else
-    {
-        ProcessRootView((RootView*)fileContents->rootNode);
-    }
+    /* CALLBACK DEFINITIONS */
 
     positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
         "\n\
@@ -162,45 +168,61 @@ void %s_Destroy(%s_t*);\n\
 ** MARK: STATIC FUNCTIONS
 ***************************************************************/
 
-
-static void ProcessWindow(Window* window)
+void DefineObject(TreeNode* node)
 {
-    if (window->Content != NULL)
-    {
-        ProcessView(window->Content);
-    }
-}
+    if (!node) return;
 
-static void ProcessRootView(RootView* rootView)
-{
-    if (rootView->Content != NULL)
-    {
-        ProcessView(rootView->Content);
-    }
-}
-
-static void ProcessView(View* view)
-{
-    if (view->ClickFunction != NULL)
+    if (node->instanceName)
     {
         positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
-"#ifdef %s_BUILD\n\
-    void %s(void);\n\
-#endif\n\
-\n",
-            moduleNameUpper,
-            view->ClickFunction
+            "\t%s %s;\n",
+            TranslateClassName(node->className),
+            node->instanceName
+        );
+        
+    }
+    else
+    {
+        positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
+            "\t%s %s%d;\n",
+            TranslateClassName(node->className),
+            "child",
+            objectsCount
         );
     }
 
-    if (view->Content != NULL)
+    objectsCount++;
+
+
+    TreeNode* childNode = node->child;
+    while (childNode != NULL)
     {
-        ProcessView(view->Content);
+        DefineObject(childNode);
+        childNode = childNode->sibling;
+    }
+}
+
+void DefineCallbacks(TreeNode* node)
+{
+    if (!node) return;
+
+    NodeProperty *property = node->properties;
+    while (property != NULL)
+    {
+        PropertyType type = ResolvePropertyType(node->className, property->key);
+        if (type >= TYPE_GENERIC_CALLBACK)
+        {
+            printf("Defining callback for property '%s' of type '%d'\n", property->key, type);
+            DeclareCallback(type, property->value, outputBuffer, outputBufferSize, &positionInFile);
+        }
+
+        property = property->next;
     }
 
-    if (view->Next != NULL)
+    TreeNode* childNode = node->child;
+    while (childNode != NULL)
     {
-        ProcessView(view->Next);
+        DefineCallbacks(childNode);
+        childNode = childNode->sibling;
     }
-    
 }

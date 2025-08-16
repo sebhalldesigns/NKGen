@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
     ValidateTree(rootNode);
 
     /* Write the header file */
-    //WriteHeaderFile(outputHeader, moduleName, rootNode);
+    WriteHeaderFile(outputHeader, moduleName, rootNode);
 
     /* Write the source file */
     //WriteSourceFile(outputSource, moduleName, &fileContents);
