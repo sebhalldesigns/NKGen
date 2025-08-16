@@ -41,6 +41,7 @@ struct xml_string {
 ***************************************************************/
 
 static TreeNode* rootNode = NULL;
+static size_t nodeCount = 0;
 
 /***************************************************************
 ** MARK: STATIC FUNCTION DEFS
@@ -60,6 +61,8 @@ static void FreeNode(TreeNode* node);
 
 TreeNode* ParseFile(char* contents, size_t size, const char* moduleName)
 {
+    nodeCount = 0;
+
     struct xml_document* document = xml_parse_document(contents, size);
 
     if (!document) 
@@ -120,6 +123,8 @@ static void TraverseNode(struct xml_node* node, size_t depth)
     else
     {
         //printf("No content for node %s\n", nodeClass);
+        free((void*)nodeContent);
+        nodeContent = NULL;
     }
 
     TreeNode* newNode = CreateNode(nodeClass, nodeContent, depth);
@@ -170,10 +175,21 @@ static TreeNode* CreateNode(const char* className, const char* content, size_t d
     TreeNode* newNode = (TreeNode*)malloc(sizeof(TreeNode));
     newNode->className = className;
     newNode->instanceName = NULL; /* from attribute Name */
-    newNode->content = content;
     newNode->properties = NULL; 
     newNode->child = NULL;
     newNode->sibling = NULL;
+
+    if (nodeCount == 0)
+    {
+        newNode->instanceName = "super"; /* root node */
+    }
+    else
+    {
+        char* defaultInstanceName = (char*)malloc(strlen("child") + (sizeof(size_t) * 2) + 1);
+        sprintf(defaultInstanceName, "child%zu", nodeCount);
+        newNode->instanceName = defaultInstanceName;
+    }
+
 
     if (depth == 0)
     {
@@ -208,7 +224,14 @@ static TreeNode* CreateNode(const char* className, const char* content, size_t d
         }
     }
 
+    if (content)
+    {
+        AddAttributeToNode(newNode, "Content", content);
+    }
+
     //printf("Created node: %s %p\n", className, newNode);
+
+    nodeCount++;
 
     return newNode;
 }
@@ -254,12 +277,6 @@ static void PrintNode(TreeNode* node, size_t depth)
     for (size_t i = 0; i < depth; i++) printf("  ");
     printf("Node: %s\n", node->className ? node->className : "(null)");
 
-    if (node->content && strlen(node->content) > 0)
-    {
-        for (size_t i = 0; i < depth + 1; i++) printf("  ");
-        printf("Content: %s\n", node->content);
-    }
-
     if (node->instanceName)
     {
         for (size_t i = 0; i < depth + 1; i++) printf("  ");
@@ -292,7 +309,6 @@ static void FreeNode(TreeNode* node)
     
     if (node->className) free((void*)node->className);
     if (node->instanceName) free((void*)node->instanceName);
-    if (node->content) free((void*)node->content);
 
     NodeProperty* property = node->properties;
     while (property)

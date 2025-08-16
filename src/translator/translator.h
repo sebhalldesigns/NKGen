@@ -54,8 +54,12 @@ bool ValidateClass(const char* className);
 bool ValidateProperty(const char* className, const char* propertyName);
 
 const char* TranslateClassName(const char* className);
-PropertyType ResolvePropertyType(const char* className, const char* propertyName);
+const char* TranslateSuperConstructor(const char* className);
+PropertyType ResolvePropertyType(const char* className, const char* propertyName, bool *isInherited);
+const char* TranslatePropertyName(const char* className, const char* propertyName);
 
 void DeclareCallback(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
+
+void WriteValue(PropertyType type, const char* value, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
 
 #endif /* TRANSLATOR_H */

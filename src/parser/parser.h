@@ -41,7 +41,6 @@ typedef struct TreeNode
 {
     const char* className;      /* XML class*/
     const char* instanceName;   /* Name attribute */
-    const char* content;        /* Content of the node, if any */
 
     NodeProperty* properties;   /* Linked list of properties */
 

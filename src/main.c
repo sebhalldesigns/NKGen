@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     WriteHeaderFile(outputHeader, moduleName, rootNode);
 
     /* Write the source file */
-    //WriteSourceFile(outputSource, moduleName, &fileContents);
+    WriteSourceFile(outputSource, moduleName, rootNode);
 
     /* Free the input file buffer */
     //free(inputFileBuffer);

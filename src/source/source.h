@@ -34,6 +34,6 @@
 ** MARK: FUNCTION DEFS
 ***************************************************************/
 
-void WriteSourceFile(const char* path, const char* moduleName, FileContents* fileContents);
+void WriteSourceFile(const char* path, const char* moduleName, TreeNode* fileContents);
 
 #endif /* SOURCE_H */

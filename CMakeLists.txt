@@ -6,7 +6,7 @@ add_executable(nkgen
     src/main.c
     src/parser/parser.c
     src/header/header.c
-    #src/source/source.c
+    src/source/source.c
     src/translator/translator.c
     src/xml/xml.c
 )

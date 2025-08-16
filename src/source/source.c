@@ -21,6 +21,8 @@
 
 #include <xml/xml.h>
 
+#include <translator/translator.h>
+
 #include "source.h"
 
 /***************************************************************
@@ -42,20 +44,23 @@ static size_t positionInFile = 0;
 static char moduleNameBuffer[256];
 static char moduleNameUpper[256];
 
+static TreeNode* rootNode = NULL;
+
 /***************************************************************
 ** MARK: STATIC FUNCTION DEFS
 ***************************************************************/
 
-static void ProcessWindow(Window* window);
-static void ProcessRootView(RootView* rootView);
-//static void ProcessView(View* view);
+static void InitialiseNode(TreeNode *node);
 
 /***************************************************************
 ** MARK: PUBLIC FUNCTIONS
 ***************************************************************/
 
-void WriteSourceFile(const char* path, const char* moduleName, FileContents* fileContents)
+void WriteSourceFile(const char* path, const char* moduleName, TreeNode* fileContents)
 {
+
+    rootNode = fileContents;
+
     if (outputBuffer != NULL) 
     {
         free(outputBuffer);
@@ -75,6 +80,8 @@ void WriteSourceFile(const char* path, const char* moduleName, FileContents* fil
     }
     moduleNameUpper[strlen(moduleName)] = '\0';
 
+    /* BEGIN FILE */
+
     positionInFile = snprintf(outputBuffer, outputBufferSize, 
 "/***************************************************************\n\
 **\n\
@@ -91,20 +98,43 @@ void WriteSourceFile(const char* path, const char* moduleName, FileContents* fil
         );
 
     positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
-        "#include \"%s.xml.h\"\n\
+        "\n\
+#include \"%s.xml.h\"\n\
 #include <stdio.h>\n\
 \n", 
         moduleName
     );
 
-    if (fileContents->rootNodeType == ROOT_NODE_WINDOW)
-    {
-        ProcessWindow((Window*)fileContents->rootNode);
-    }
-    else
-    {
-        ProcessRootView((RootView*)fileContents->rootNode);
-    }
+    /* BEGIN CONSTRUCTOR */
+
+    positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile, 
+"/* Constructor */\n\
+bool %s_Create(%s_t* this)\n\
+{\n\
+",
+        moduleName,
+        moduleName,
+        moduleName,
+        moduleName,
+        moduleName
+    );
+
+    InitialiseNode(fileContents);
+
+    /* END CONSTRUCTOR, BEGIN DESTRUCTOR */
+
+    positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile, 
+"}\n\
+\n\
+/* Destructor */\n\
+void %s_Destroy(%s_t* this)\n\
+{\n\
+\n\
+}\n\
+",
+        moduleName,
+        moduleName
+    );
 
     FILE *sourceFile = fopen(path, "w");
     
@@ -124,43 +154,111 @@ void WriteSourceFile(const char* path, const char* moduleName, FileContents* fil
 ** MARK: STATIC FUNCTIONS
 ***************************************************************/
 
-static void ProcessWindow(Window* window)
+static void InitialiseNode(TreeNode *node)
 {
-    /* init function */
+    if (strcmp(node->className, "Window") == 0)
+    {
+        /* special case for window */
+        float width = 800.0f;
+        float height = 600.0f;
+        const char* title = "NanoKit Window";
 
-    positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
-        "bool %s_Create(%s_t *instance)\n\
-{\n\
-    printf(\"%s_Create\\n\");\n\
-    return nkWindow_Create(&instance->Super, \"%s\", %d, %d);\n\
-}\n\
-\n",
-        moduleNameBuffer,   
-        moduleNameBuffer,
-        moduleNameBuffer,
-        window->Title,
-        window->Width,
-        window->Height
-    );
+        NodeProperty* property = node->properties;
+        while (property != NULL)
+        {
+            if (strcmp(property->key, "Width") == 0)
+            {
+                width = atof(property->value);
+            }
+            else if (strcmp(property->key, "Height") == 0)
+            {
+                height = atof(property->value);
+            }
+            else if (strcmp(property->key, "Title") == 0)
+            {
+                title = property->value;
+            }
 
-    /* destroy function */
+            property = property->next;
+        }
 
-    positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
-        "void %s_Destroy(%s_t *instance)\n\
-{\n\
-    printf(\"%s_Destroy\\n\");\n\
-    nkWindow_Destroy(&instance->Super);\n\
-}\n\
-\n",
-        moduleNameBuffer,
-        moduleNameBuffer,
-        moduleNameBuffer
-    );
+        positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
+            "\tnkWindow_Create(&this->%s, \"%s\", %.2f, %.2f);\n",
+            node->instanceName,
+            title,
+            width,
+            height
+        );
+    }
+    else
+    {
+        positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
+            "\t%s(&this->%s);\n",
+            TranslateSuperConstructor(node->className),
+            node->instanceName
+        );
+    }
 
+    /* set attibutes */
+    NodeProperty* property = node->properties;
+    while (property != NULL)
+    {
+        bool isInherited = false;
+        PropertyType type = ResolvePropertyType(node->className, property->key, &isInherited);
 
-}
+        if (isInherited)
+        {
+            positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
+                "\tthis->%s.view.%s = ",
+                node->instanceName,
+                TranslatePropertyName(node->className, property->key)
+            );
+        }
+        else
+        {
+            positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
+                "\tthis->%s.%s = ",
+                node->instanceName,
+                TranslatePropertyName(node->className, property->key)
+            );
+        }
 
-static void ProcessRootView(RootView* rootView)
-{
+        WriteValue(type, property->value, outputBuffer, outputBufferSize, &positionInFile);
+
+        property = property->next;
+    }
+
+    TreeNode* childNode = node->child;
+    while (childNode != NULL)
+    {
+            positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
+"\n\
+\t/* Initialise %s */\n\
+",
+            childNode->instanceName
+        );
+
+        InitialiseNode(childNode);
+
+        if (strcmp(node->className, "Window") == 0)
+        {
+            /* add to parent */
+            positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
+                "\n\tthis->super.rootView = (nkView_t *)&this->%s.view;\n",
+                childNode->instanceName
+            );
+        }
+        else
+        {
+            /* add to parent */
+            positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
+                "\n\tnkView_AddChildView(&this->%s.view, &this->%s.view);\n",
+                node->instanceName,
+                childNode->instanceName
+            );
+        }
+        
+        childNode = childNode->sibling;
+    }
     
 }

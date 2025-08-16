@@ -44,8 +44,6 @@ static size_t positionInFile = 0;
 static char moduleNameBuffer[256];
 static char moduleNameUpper[256];
 
-static size_t objectsCount = 0;
-
 /***************************************************************
 ** MARK: STATIC FUNCTION DEFS
 ***************************************************************/
@@ -59,8 +57,6 @@ void DefineCallbacks(TreeNode* node);
 
 void WriteHeaderFile(const char* path, const char* moduleName, TreeNode* fileContents)
 {   
-    objectsCount = 0;
-
     if (outputBuffer != NULL) 
     {
         free(outputBuffer);
@@ -172,28 +168,12 @@ void DefineObject(TreeNode* node)
 {
     if (!node) return;
 
-    if (node->instanceName)
-    {
-        positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
-            "\t%s %s;\n",
-            TranslateClassName(node->className),
-            node->instanceName
-        );
-        
-    }
-    else
-    {
-        positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
-            "\t%s %s%d;\n",
-            TranslateClassName(node->className),
-            "child",
-            objectsCount
-        );
-    }
-
-    objectsCount++;
-
-
+    positionInFile += snprintf(outputBuffer + positionInFile, outputBufferSize - positionInFile,
+        "\t%s %s;\n",
+        TranslateClassName(node->className),
+        node->instanceName
+    );
+    
     TreeNode* childNode = node->child;
     while (childNode != NULL)
     {
@@ -209,7 +189,8 @@ void DefineCallbacks(TreeNode* node)
     NodeProperty *property = node->properties;
     while (property != NULL)
     {
-        PropertyType type = ResolvePropertyType(node->className, property->key);
+        bool isInherited = false;
+        PropertyType type = ResolvePropertyType(node->className, property->key, &isInherited);
         if (type >= TYPE_GENERIC_CALLBACK)
         {
             printf("Defining callback for property '%s' of type '%d'\n", property->key, type);

@@ -32,13 +32,13 @@
 ** MARK: TYPEDEFS
 ***************************************************************/
 
-typedef void(*DeclarationWriter)(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
-typedef void(*PropertyConverter)(const char* markupValue, size_t outputSize, void* output);
+typedef void(*WriterFunction)(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
 
 typedef struct
 {
     const char* typeName;
-    DeclarationWriter declarationWriter;
+    WriterFunction declarationWriter;
+    WriterFunction valueWriter;
 } CodeType;
 
 typedef struct 
@@ -52,6 +52,7 @@ typedef struct ClassEntry
 {
     const char* markupName;
     const char* codeName;
+    const char* constructorName;
     PropertyEntry* properties; /* ensure NULL terminated */
 
     struct ClassEntry* super;
@@ -64,15 +65,23 @@ typedef struct ClassEntry
 
 void CallbackDeclarationWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
 
+void StringWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
+
+void FloatWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
+
+void DockPositionWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
+
+void ColorWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
+
 static CodeType codeTypes[] = {
-    [TYPE_STRING] = {"STRING", NULL},
-    [TYPE_FLOAT] = {"FLOAT", NULL},
-    [TYPE_THICKNESS] = {"THICKNESS", NULL},
-    [TYPE_COLOR] = {"COLOR", NULL},
-    [TYPE_BOOLEAN] = {"BOOLEAN", NULL},
-    [TYPE_DOCK_POSITION] = {"DOCK_POSITION", NULL},
-    [TYPE_GENERIC_CALLBACK] = {"GENERIC_CALLBACK", CallbackDeclarationWriter},
-    [TYPE_BUTTON_CALLBACK] = {"BUTTON_CALLBACK", CallbackDeclarationWriter},
+    [TYPE_STRING] = {"STRING", NULL, StringWriter},
+    [TYPE_FLOAT] = {"FLOAT", NULL, FloatWriter},
+    [TYPE_THICKNESS] = {"THICKNESS", NULL, NULL},
+    [TYPE_COLOR] = {"COLOR", NULL, ColorWriter},
+    [TYPE_BOOLEAN] = {"BOOLEAN", NULL, NULL},
+    [TYPE_DOCK_POSITION] = {"DOCK_POSITION", NULL, DockPositionWriter},
+    [TYPE_GENERIC_CALLBACK] = {"GENERIC_CALLBACK", CallbackDeclarationWriter, NULL},
+    [TYPE_BUTTON_CALLBACK] = {"BUTTON_CALLBACK", CallbackDeclarationWriter, NULL},
 };
 
 static PropertyEntry nkWindowProperties[] = {
@@ -84,10 +93,10 @@ static PropertyEntry nkWindowProperties[] = {
 
 static PropertyEntry nkViewProperties[] = {
     { "Name", "name", TYPE_STRING },
-    { "Width", "sizeRequest.width,", TYPE_FLOAT },
+    { "Width", "sizeRequest.width", TYPE_FLOAT },
     { "Height", "sizeRequest.height", TYPE_FLOAT },
     { "Margin", "margin", TYPE_THICKNESS },
-    { "BackgroundColor", "backgroundColor", TYPE_COLOR },
+    { "Background", "backgroundColor", TYPE_COLOR },
     { "DockPanel.Dock", "dockPosition", TYPE_DOCK_POSITION },
     { NULL, NULL, TYPE_STRING } /* NULL TERMINATION */
 };
@@ -98,6 +107,7 @@ static PropertyEntry nkDockViewProperties[] = {
 };
 
 static PropertyEntry nkButtonProperties[] = {
+    { "Content", "text", TYPE_STRING },
     { "Text", "text", TYPE_STRING },
     { "Content", "text", TYPE_STRING },
     { "Foreground", "foreground", TYPE_COLOR },
@@ -107,11 +117,11 @@ static PropertyEntry nkButtonProperties[] = {
 };
 
 static ClassEntry classes[] = {
-    {"Window", "nkWindow_t", nkWindowProperties, NULL},
-    {"View", "nkView_t", nkViewProperties, NULL},
-    {"DockPanel", "nkDockView_t", nkDockViewProperties, &classes[1]}, // nkView_t
-    {"Button", "nkButton_t", nkButtonProperties, &classes[1]},
-    {NULL, NULL, NULL, TYPE_STRING} /* NULL TERMINATION */
+    {"Window", "nkWindow_t", "nkWindow_Create", nkWindowProperties, NULL},
+    {"View", "nkView_t", "nkView_Create", nkViewProperties, NULL},
+    {"DockPanel", "nkDockView_t", "nkDockView_Create", nkDockViewProperties, &classes[1]}, // nkView_t
+    {"Button", "nkButton_t", "nkButton_Create", nkButtonProperties, &classes[1]},
+    {NULL, NULL, NULL, NULL, TYPE_STRING} /* NULL TERMINATION */
 };
 
 
@@ -243,7 +253,21 @@ const char* TranslateClassName(const char* className)
     return "[UNKNOWN]";
 }
 
-PropertyType ResolvePropertyType(const char* className, const char* propertyName)
+const char* TranslateSuperConstructor(const char* className)
+{
+    for (size_t i = 0; classes[i].markupName != NULL; i++)
+    {
+        if (strcmp(classes[i].markupName, className) == 0)
+        {
+            return classes[i].constructorName;
+        }
+    }
+
+    printf("Error: Unknown class '%s'\n", className);
+    return "[UNKNOWN]";
+}
+
+PropertyType ResolvePropertyType(const char* className, const char* propertyName, bool *isInherited)
 {
 
     ClassEntry* classEntry = NULL;
@@ -272,6 +296,7 @@ PropertyType ResolvePropertyType(const char* className, const char* propertyName
         if (strcmp(classEntry->properties[i].markupName, propertyName) == 0)
         {
             //printf("Valid property '%s' for class '%s'\n", propertyName, className);
+            *isInherited = false;
             return classEntry->properties[i].type;
         }
     }
@@ -285,6 +310,7 @@ PropertyType ResolvePropertyType(const char* className, const char* propertyName
             if (strcmp(classEntry->super->properties[i].markupName, propertyName) == 0)
             {
                 //printf("Valid property '%s' for class '%s'\n", propertyName, classEntry->super->markupName);
+                *isInherited = true;
                 return classEntry->super->properties[i].type;
 
             }
@@ -295,6 +321,56 @@ PropertyType ResolvePropertyType(const char* className, const char* propertyName
     return TYPE_STRING;
 }
 
+const char* TranslatePropertyName(const char* className, const char* propertyName)
+{
+    ClassEntry* classEntry = NULL;
+
+    for (size_t i = 0; classes[i].markupName != NULL; i++)
+    {
+        if (strcmp(classes[i].markupName, className) == 0)
+        {
+            classEntry = &classes[i];
+            break;
+        }
+    }
+
+    if (!classEntry)
+    {
+        printf("Error: Unknown class '%s'\n", className);
+        return "[ERROR]";
+    }
+
+    //printf("Valid class: %s\n", className);
+
+    for (size_t i = 0; classEntry->properties[i].markupName != NULL; i++)
+    {
+        //printf("Checking property '%s' for class '%s'\n", classEntry->properties[i].markupName, className);
+
+        if (strcmp(classEntry->properties[i].markupName, propertyName) == 0)
+        {
+            //printf("Valid property '%s' for class '%s'\n", propertyName, className);
+            return classEntry->properties[i].codeName;
+        }
+    }
+    
+    if (classEntry->super)
+    {
+        for (size_t i = 0; classEntry->super->properties[i].markupName != NULL; i++)
+        {
+            //printf("Checking property '%s' for class '%s'\n", classEntry->super->properties[i].markupName, classEntry->super->markupName);
+
+            if (strcmp(classEntry->super->properties[i].markupName, propertyName) == 0)
+            {
+                //printf("Valid property '%s' for class '%s'\n", propertyName, classEntry->super->markupName);
+                return classEntry->super->properties[i].codeName;
+            }
+        }
+    }
+
+    printf("Error: Unknown property '%s' for class '%s'\n", propertyName, className);
+    return "[ERROR]";
+}
+
 void DeclareCallback(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile)
 {
     if (propertyType >= TYPE_GENERIC_CALLBACK)
@@ -302,6 +378,25 @@ void DeclareCallback(PropertyType propertyType, const char* propertyValue, char*
         CallbackDeclarationWriter(propertyType, propertyValue, outputBuffer, outputBufferSize, positionInFile);
     }
 }
+
+void WriteValue(PropertyType type, const char* value, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile)
+{
+    if (type < sizeof(codeTypes) / sizeof(CodeType))
+    {
+        if (codeTypes[type].valueWriter)
+        {
+            codeTypes[type].valueWriter(type, value, outputBuffer, outputBufferSize, positionInFile);
+        }
+        else
+        {
+            *positionInFile += snprintf(outputBuffer + *positionInFile, outputBufferSize - *positionInFile,
+                "%s;\n",
+                value
+            );
+        }
+    }
+}
+
 
 /***************************************************************
 ** MARK: STATIC FUNCTIONS
@@ -329,3 +424,111 @@ void CallbackDeclarationWriter(PropertyType propertyType, const char* propertyVa
     }
 }
 
+
+void StringWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile)
+{
+    *positionInFile += snprintf(outputBuffer + *positionInFile, outputBufferSize - *positionInFile,
+        "\"%s\";\n",
+        propertyValue
+    );
+}
+
+void FloatWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile)
+{
+    *positionInFile += snprintf(outputBuffer + *positionInFile, outputBufferSize - *positionInFile,
+        "(float)%s;\n",
+        propertyValue
+    );
+}
+
+void DockPositionWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile)
+{
+    const char* position = NULL;
+
+    if (strcmp(propertyValue, "Right") == 0)
+    {
+        position = "DOCK_POSITION_RIGHT";
+    }
+    else if (strcmp(propertyValue, "Top") == 0)
+    {
+        position = "DOCK_POSITION_TOP";
+    }
+    else if (strcmp(propertyValue, "Bottom") == 0)
+    {
+        position = "DOCK_POSITION_BOTTOM";
+    }
+    else 
+    {
+        position = "DOCK_POSITION_LEFT"; // Default to left if not recognized
+    }
+
+    *positionInFile += snprintf(outputBuffer + *positionInFile, outputBufferSize - *positionInFile,
+        "%s;\n",
+        position
+    );
+}
+
+
+void ColorWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile)
+{
+    const char* namedColor = NULL;
+
+    if (strcmp(propertyValue, "Black") == 0)
+    {
+        namedColor = "NK_COLOR_BLACK";
+    }
+    else if (strcmp(propertyValue, "White") == 0)
+    {
+        namedColor = "NK_COLOR_WHITE";
+    }
+    else if (strcmp(propertyValue, "Red") == 0)
+    {
+        namedColor = "NK_COLOR_RED";
+    }
+    else if (strcmp(propertyValue, "Green") == 0)
+    {
+        namedColor = "NK_COLOR_GREEN";
+    }
+    else if (strcmp(propertyValue, "Blue") == 0)
+    {
+        namedColor = "NK_COLOR_BLUE";
+    }
+    else if (strcmp(propertyValue, "Yellow") == 0)
+    {
+        namedColor = "NK_COLOR_YELLOW";
+    }
+    else if (strcmp(propertyValue, "Cyan") == 0)
+    {
+        namedColor = "NK_COLOR_CYAN";
+    }
+    else if (strcmp(propertyValue, "Orange") == 0)
+    {
+        namedColor = "NK_COLOR_ORANGE";
+    }
+    else if (strcmp(propertyValue, "Magenta") == 0)
+    {
+        namedColor = "NK_COLOR_MAGENTA";
+    }
+    else if (strcmp(propertyValue, "Gray") == 0)
+    {
+        namedColor = "NK_COLOR_GRAY";
+    }
+    else if (strcmp(propertyValue, "LightGray") == 0)
+    {
+        namedColor = "NK_COLOR_LIGHT_GRAY";
+    }
+    else if (strcmp(propertyValue, "DarkGray") == 0)
+    {
+        namedColor = "NK_COLOR_DARK_GRAY";
+    }
+    else
+    {
+        namedColor = "NK_COLOR_TRANSPARENT";
+    }
+
+    *positionInFile += snprintf(outputBuffer + *positionInFile, outputBufferSize - *positionInFile,
+        "%s;\n",
+        namedColor
+    );
+
+}
