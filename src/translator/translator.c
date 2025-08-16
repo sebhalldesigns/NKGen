@@ -37,6 +37,7 @@ typedef void(*WriterFunction)(PropertyType propertyType, const char* propertyVal
 typedef struct
 {
     const char* typeName;
+    const char* codeName;
     WriterFunction declarationWriter;
     WriterFunction valueWriter;
 } CodeType;
@@ -74,14 +75,14 @@ void DockPositionWriter(PropertyType propertyType, const char* propertyValue, ch
 void ColorWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
 
 static CodeType codeTypes[] = {
-    [TYPE_STRING] = {"STRING", NULL, StringWriter},
-    [TYPE_FLOAT] = {"FLOAT", NULL, FloatWriter},
-    [TYPE_THICKNESS] = {"THICKNESS", NULL, NULL},
-    [TYPE_COLOR] = {"COLOR", NULL, ColorWriter},
-    [TYPE_BOOLEAN] = {"BOOLEAN", NULL, NULL},
-    [TYPE_DOCK_POSITION] = {"DOCK_POSITION", NULL, DockPositionWriter},
-    [TYPE_GENERIC_CALLBACK] = {"GENERIC_CALLBACK", CallbackDeclarationWriter, NULL},
-    [TYPE_BUTTON_CALLBACK] = {"BUTTON_CALLBACK", CallbackDeclarationWriter, NULL},
+    [TYPE_STRING] = {"STRING", "const char*", NULL, StringWriter},
+    [TYPE_FLOAT] = {"FLOAT", "float", NULL, FloatWriter},
+    [TYPE_THICKNESS] = {"THICKNESS", "nkThickness_t", NULL, NULL},
+    [TYPE_COLOR] = {"COLOR", "nkColor_t", NULL, ColorWriter},
+    [TYPE_BOOLEAN] = {"BOOLEAN", "bool", NULL, NULL},
+    [TYPE_DOCK_POSITION] = {"DOCK_POSITION", "nkDockPosition_t", NULL, DockPositionWriter},
+    [TYPE_GENERIC_CALLBACK] = {"GENERIC_CALLBACK", "ViewMeasureCallback_t", CallbackDeclarationWriter, NULL},
+    [TYPE_BUTTON_CALLBACK] = {"BUTTON_CALLBACK", "ButtonCallback_t", CallbackDeclarationWriter, NULL},
 };
 
 static PropertyEntry nkWindowProperties[] = {
@@ -390,7 +391,8 @@ void WriteValue(PropertyType type, const char* value, char* outputBuffer, size_t
         else
         {
             *positionInFile += snprintf(outputBuffer + *positionInFile, outputBufferSize - *positionInFile,
-                "%s;\n",
+                "(%s)%s;\n",
+                codeTypes[type].codeName,
                 value
             );
         }
