@@ -44,8 +44,11 @@ typedef struct TreeNode
 
     NodeProperty* properties;   /* Linked list of properties */
 
+    struct TreeNode* parent; /* Pointer to the parent node */
     struct TreeNode* child; /* Pointer to the first child node */
+    
     struct TreeNode* sibling; /* Pointer to the next sibling node */
+    struct TreeNode* prevSibling; /* Pointer to the previous sibling node */
 } TreeNode;
 
 /***************************************************************

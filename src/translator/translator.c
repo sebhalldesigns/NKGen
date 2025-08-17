@@ -72,6 +72,8 @@ void FloatWriter(PropertyType propertyType, const char* propertyValue, char* out
 
 void DockPositionWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
 
+void StackOrientationWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
+
 void ColorWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
 
 static CodeType codeTypes[] = {
@@ -81,6 +83,7 @@ static CodeType codeTypes[] = {
     [TYPE_COLOR] = {"COLOR", "nkColor_t", NULL, ColorWriter},
     [TYPE_BOOLEAN] = {"BOOLEAN", "bool", NULL, NULL},
     [TYPE_DOCK_POSITION] = {"DOCK_POSITION", "nkDockPosition_t", NULL, DockPositionWriter},
+    [TYPE_STACK_ORIENTATION] = {"STACK_ORIENTATION", "nkStackOrientation_t", NULL, StackOrientationWriter},
     [TYPE_GENERIC_CALLBACK] = {"GENERIC_CALLBACK", "ViewMeasureCallback_t", CallbackDeclarationWriter, NULL},
     [TYPE_BUTTON_CALLBACK] = {"BUTTON_CALLBACK", "ButtonCallback_t", CallbackDeclarationWriter, NULL},
 };
@@ -107,6 +110,15 @@ static PropertyEntry nkDockViewProperties[] = {
     { NULL, NULL, TYPE_STRING } /* NULL TERMINATION */
 };
 
+static PropertyEntry nkStackViewProperties[] = {
+    { "Orientation", "orientation", TYPE_STACK_ORIENTATION },
+    { NULL, NULL, TYPE_STRING } /* NULL TERMINATION */
+};
+
+static PropertyEntry nkScrollViewProperties[] = {
+    { NULL, NULL, TYPE_STRING } /* NULL TERMINATION */
+};
+
 static PropertyEntry nkButtonProperties[] = {
     { "Content", "text", TYPE_STRING },
     { "Text", "text", TYPE_STRING },
@@ -120,7 +132,9 @@ static PropertyEntry nkButtonProperties[] = {
 static ClassEntry classes[] = {
     {"Window", "nkWindow_t", "nkWindow_Create", nkWindowProperties, NULL},
     {"View", "nkView_t", "nkView_Create", nkViewProperties, NULL},
-    {"DockPanel", "nkDockView_t", "nkDockView_Create", nkDockViewProperties, &classes[1]}, // nkView_t
+    {"DockPanel", "nkDockView_t", "nkDockView_Create", nkDockViewProperties, &classes[1]},
+    {"StackPanel", "nkStackView_t", "nkStackView_Create", nkStackViewProperties, &classes[1]},
+    {"ScrollViewer", "nkScrollView_t", "nkScrollView_Create", nkScrollViewProperties, &classes[1]},
     {"Button", "nkButton_t", "nkButton_Create", nkButtonProperties, &classes[1]},
     {NULL, NULL, NULL, NULL, TYPE_STRING} /* NULL TERMINATION */
 };
@@ -461,12 +475,42 @@ void DockPositionWriter(PropertyType propertyType, const char* propertyValue, ch
     }
     else 
     {
+        if (strcmp(propertyValue, "Left") != 0)
+        {
+            printf("Error: Unknown dock position '%s'. Defaulting to left.\n", propertyValue);
+        }
+
         position = "DOCK_POSITION_LEFT"; // Default to left if not recognized
     }
 
     *positionInFile += snprintf(outputBuffer + *positionInFile, outputBufferSize - *positionInFile,
         "%s;\n",
         position
+    );
+}
+
+void StackOrientationWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile)
+{
+    const char* orientation = NULL;
+
+    if (strcmp(propertyValue, "Vertical") == 0)
+    {
+        orientation = "STACK_ORIENTATION_VERTICAL";
+    }
+    else 
+    {   
+
+        if (strcmp(propertyValue, "Horizontal") != 0)
+        {
+            printf("Error: Unknown stack orientation '%s'. Defaulting to horizontal.\n", propertyValue);
+        } 
+
+        orientation = "STACK_ORIENTATION_HORIZONTAL"; // Default to left if not recognized
+    }
+
+    *positionInFile += snprintf(outputBuffer + *positionInFile, outputBufferSize - *positionInFile,
+        "%s;\n",
+        orientation
     );
 }
 

@@ -47,8 +47,8 @@ static size_t nodeCount = 0;
 ** MARK: STATIC FUNCTION DEFS
 ***************************************************************/
 
-static void TraverseNode(struct xml_node* node, size_t depth);
-static TreeNode* CreateNode(const char* className, const char* content, size_t depth);
+static void TraverseNode(struct xml_node* node, TreeNode* parent);
+static TreeNode* CreateNode(const char* className, const char* content, TreeNode* parent);
 static void AddAttributeToNode(TreeNode* node, const char* key, const char* value);
 
 static void PrintNode(TreeNode* node, size_t depth);
@@ -75,7 +75,7 @@ TreeNode* ParseFile(char* contents, size_t size, const char* moduleName)
     
     if (root) 
     {
-        TraverseNode(root, 0);
+        TraverseNode(root, NULL);
     }
 
     xml_document_free(document, true);
@@ -99,7 +99,7 @@ void FreeFile(TreeNode* rootNode)
 ** MARK: STATIC FUNCTIONS
 ***************************************************************/
 
-static void TraverseNode(struct xml_node* node, size_t depth)
+static void TraverseNode(struct xml_node* node, TreeNode* parent)
 {
 
     /* CLASS */
@@ -127,7 +127,7 @@ static void TraverseNode(struct xml_node* node, size_t depth)
         nodeContent = NULL;
     }
 
-    TreeNode* newNode = CreateNode(nodeClass, nodeContent, depth);
+    TreeNode* newNode = CreateNode(nodeClass, nodeContent, parent);
 
     /* ATTRIBUTES */
 
@@ -165,12 +165,12 @@ static void TraverseNode(struct xml_node* node, size_t depth)
     for (size_t i = 0; i < child_count; i++) 
     {
         struct xml_node* child = xml_node_child(node, i);
-        TraverseNode(child, depth + 1);
+        TraverseNode(child, newNode);
     }
 
 }
 
-static TreeNode* CreateNode(const char* className, const char* content, size_t depth)
+static TreeNode* CreateNode(const char* className, const char* content, TreeNode* parent)
 {
     TreeNode* newNode = (TreeNode*)malloc(sizeof(TreeNode));
     newNode->className = className;
@@ -178,6 +178,9 @@ static TreeNode* CreateNode(const char* className, const char* content, size_t d
     newNode->properties = NULL; 
     newNode->child = NULL;
     newNode->sibling = NULL;
+    newNode->prevSibling = NULL;
+
+    newNode->parent = parent;
 
     if (nodeCount == 0)
     {
@@ -191,7 +194,7 @@ static TreeNode* CreateNode(const char* className, const char* content, size_t d
     }
 
 
-    if (depth == 0)
+    if (parent == NULL)
     {
         rootNode = newNode;
     }
@@ -199,29 +202,22 @@ static TreeNode* CreateNode(const char* className, const char* content, size_t d
     {
         /* add node to appropriate level */
 
-        TreeNode* current = rootNode;
-        size_t currentDepth = 0;
-        
-        while (current->child != NULL && currentDepth < depth - 1)
+        if (parent->child == NULL)
         {
-            current = current->child;
-            currentDepth++;
+            parent->child = newNode;
         }
-
-        if (current->child == NULL)
+        else
         {
-            current->child = newNode;
-        }
-        else 
-        {
-            TreeNode* sibling = current->child;
+            TreeNode* sibling = parent->child;
             while (sibling->sibling != NULL)
             {
                 sibling = sibling->sibling;
             }
 
             sibling->sibling = newNode;
+            newNode->prevSibling = sibling;
         }
+       
     }
 
     if (content)

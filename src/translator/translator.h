@@ -39,6 +39,7 @@ typedef enum
     TYPE_COLOR,
     TYPE_BOOLEAN,
     TYPE_DOCK_POSITION,
+    TYPE_STACK_ORIENTATION,
 
     /* ensure only callbacks after here as callback identified by >= TYPE_GENERIC_CALLBACK */
     TYPE_GENERIC_CALLBACK,
