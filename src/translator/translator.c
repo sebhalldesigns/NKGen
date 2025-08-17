@@ -70,11 +70,18 @@ void StringWriter(PropertyType propertyType, const char* propertyValue, char* ou
 
 void FloatWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
 
+void ColorWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
+
+
+void VerticalAlignmentWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
+
+void HorizontalAlignmentWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
+
+
 void DockPositionWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
 
 void StackOrientationWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
 
-void ColorWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile);
 
 static CodeType codeTypes[] = {
     [TYPE_STRING] = {"STRING", "const char*", NULL, StringWriter},
@@ -82,6 +89,8 @@ static CodeType codeTypes[] = {
     [TYPE_THICKNESS] = {"THICKNESS", "nkThickness_t", NULL, NULL},
     [TYPE_COLOR] = {"COLOR", "nkColor_t", NULL, ColorWriter},
     [TYPE_BOOLEAN] = {"BOOLEAN", "bool", NULL, NULL},
+    [TYPE_VERTICAL_ALIGNMENT] = {"VERTICAL_ALIGNMENT", "nkHorizontalAlignment_t", NULL, VerticalAlignmentWriter},
+    [TYPE_HORIZONTAL_ALIGNMENT] = {"HORIZONTAL_ALIGNMENT", "nkVerticalAlignment_t", NULL, HorizontalAlignmentWriter},
     [TYPE_DOCK_POSITION] = {"DOCK_POSITION", "nkDockPosition_t", NULL, DockPositionWriter},
     [TYPE_STACK_ORIENTATION] = {"STACK_ORIENTATION", "nkStackOrientation_t", NULL, StackOrientationWriter},
     [TYPE_GENERIC_CALLBACK] = {"GENERIC_CALLBACK", "ViewMeasureCallback_t", CallbackDeclarationWriter, NULL},
@@ -101,6 +110,8 @@ static PropertyEntry nkViewProperties[] = {
     { "Height", "sizeRequest.height", TYPE_FLOAT },
     { "Margin", "margin", TYPE_THICKNESS },
     { "Background", "backgroundColor", TYPE_COLOR },
+    { "HorizontalAlignment", "horizontalAlignment", TYPE_HORIZONTAL_ALIGNMENT },
+    { "VerticalAlignment", "verticalAlignment", TYPE_VERTICAL_ALIGNMENT },
     { "DockPanel.Dock", "dockPosition", TYPE_DOCK_POSITION },
     { NULL, NULL, TYPE_STRING } /* NULL TERMINATION */
 };
@@ -119,15 +130,23 @@ static PropertyEntry nkScrollViewProperties[] = {
     { NULL, NULL, TYPE_STRING } /* NULL TERMINATION */
 };
 
+static PropertyEntry nkLabelProperties[] = {
+    { "Content", "text", TYPE_STRING },
+    { "Text", "text", TYPE_STRING },
+    { "Foreground", "foreground", TYPE_COLOR },
+    { "Background", "background", TYPE_COLOR },
+    { NULL, NULL, TYPE_STRING } /* NULL TERMINATION */
+};
+
 static PropertyEntry nkButtonProperties[] = {
     { "Content", "text", TYPE_STRING },
     { "Text", "text", TYPE_STRING },
-    { "Content", "text", TYPE_STRING },
     { "Foreground", "foreground", TYPE_COLOR },
     { "Background", "background", TYPE_COLOR },
     { "Click", "onClick", TYPE_BUTTON_CALLBACK },
     { NULL, NULL, TYPE_STRING } /* NULL TERMINATION */
 };
+
 
 static ClassEntry classes[] = {
     {"Window", "nkWindow_t", "nkWindow_Create", nkWindowProperties, NULL},
@@ -135,6 +154,7 @@ static ClassEntry classes[] = {
     {"DockPanel", "nkDockView_t", "nkDockView_Create", nkDockViewProperties, &classes[1]},
     {"StackPanel", "nkStackView_t", "nkStackView_Create", nkStackViewProperties, &classes[1]},
     {"ScrollViewer", "nkScrollView_t", "nkScrollView_Create", nkScrollViewProperties, &classes[1]},
+    {"TextBlock", "nkLabel_t", "nkLabel_Create", nkLabelProperties, &classes[1]},
     {"Button", "nkButton_t", "nkButton_Create", nkButtonProperties, &classes[1]},
     {NULL, NULL, NULL, NULL, TYPE_STRING} /* NULL TERMINATION */
 };
@@ -457,6 +477,71 @@ void FloatWriter(PropertyType propertyType, const char* propertyValue, char* out
     );
 }
 
+void VerticalAlignmentWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile)
+{
+    const char* alignment = "";
+
+    if (strcmp(propertyValue, "Top") == 0)
+    {
+        alignment = "ALIGNMENT_TOP";
+    }
+    else if (strcmp(propertyValue, "Center") == 0)
+    {
+        alignment = "ALIGNMENT_MIDDLE";
+    }
+    else if (strcmp(propertyValue, "Bottom") == 0)
+    {
+        alignment = "ALIGNMENT_BOTTOM";
+    }
+    else
+    {
+        if (strcmp(propertyValue, "Stretch") != 0)
+        {
+            printf("Error: Unknown vertical alignment '%s'. Defaulting to fill.\n", propertyValue);
+        }
+
+        alignment = "ALIGNMENT_FILL";
+    }
+
+    *positionInFile += snprintf(outputBuffer + *positionInFile, outputBufferSize - *positionInFile,
+        "%s;\n",
+        alignment
+    );
+ 
+}
+
+void HorizontalAlignmentWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile)
+{
+    const char* alignment = "";
+
+    if (strcmp(propertyValue, "Left") == 0)
+    {
+        alignment = "ALIGNMENT_LEFT";
+    }
+    else if (strcmp(propertyValue, "Center") == 0)
+    {
+        alignment = "ALIGNMENT_CENTER";
+    }
+    else if (strcmp(propertyValue, "Right") == 0)
+    {
+        alignment = "ALIGNMENT_RIGHT";
+    }
+    else
+    {
+        if (strcmp(propertyValue, "Stretch") != 0)
+        {
+            printf("Error: Unknown vertical alignment '%s'. Defaulting to stretch.\n", propertyValue);
+        }
+
+        alignment = "ALIGNMENT_STRETCH";
+    }
+
+    *positionInFile += snprintf(outputBuffer + *positionInFile, outputBufferSize - *positionInFile,
+        "%s;\n",
+        alignment
+    );
+}
+
 void DockPositionWriter(PropertyType propertyType, const char* propertyValue, char* outputBuffer, size_t outputBufferSize, size_t* positionInFile)
 {
     const char* position = NULL;
@@ -567,14 +652,30 @@ void ColorWriter(PropertyType propertyType, const char* propertyValue, char* out
     {
         namedColor = "NK_COLOR_DARK_GRAY";
     }
+    else if (strlen(propertyValue) > 0 && propertyValue[0] == '#')
+    {
+        /* Assume it's a hex color code */
+        namedColor = NULL;
+    }
     else
     {
         namedColor = "NK_COLOR_TRANSPARENT";
     }
 
-    *positionInFile += snprintf(outputBuffer + *positionInFile, outputBufferSize - *positionInFile,
-        "%s;\n",
-        namedColor
-    );
+    if (namedColor)
+    {
+        *positionInFile += snprintf(outputBuffer + *positionInFile, outputBufferSize - *positionInFile,
+            "%s;\n",
+            namedColor
+        );
+    }
+    else 
+    {
+        /* Convert hex color code to nkColor_t */
+        *positionInFile += snprintf(outputBuffer + *positionInFile, outputBufferSize - *positionInFile,
+            "nkColor_FromHexRGB(0x%x);\n",
+            (unsigned int)strtol(propertyValue + 1, NULL, 16) // Skip the '#' character
+        );
+    }
 
 }
